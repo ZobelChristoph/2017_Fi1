@@ -13,21 +13,23 @@ namespace Ubungsaufgabe1
 
             printArray(freunde);
 
-            // überschreibt wert mit leerem string >> größe bleibt
+            // lösung 1
+
             freunde[1] = string.Empty;
 
             printArray(freunde);
 
-            // fügt Uschi in die leere Stelle
-            freunde[2] = "Uschi";
+            freunde[1] = "Uschi";
 
             printArray(freunde);
 
-            // erstellt neues array >> lässt einen wert aus >> verkleinert
-            // freunde = new string[] {freunde[0], freunde[2]};
+            // lösung 2
 
-            // erstellt neues array >> fügt Uschi hinten an >> vergrößert
-            // freunde = new string[] {freunde[0], freunde[1], "Uschi"};
+            //freunde = new string[] { freunde[0], freunde[2] };
+
+            //printArray(freunde);
+
+            //freunde = new string[] { freunde[0], freunde[1], "Uschi" };
 
             //printArray(freunde);
 
@@ -39,6 +41,7 @@ namespace Ubungsaufgabe1
             {
                 Console.WriteLine(element + " ");
             }
+            Console.WriteLine("--------");
         }
     }
 }
