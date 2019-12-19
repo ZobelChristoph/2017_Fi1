@@ -1,0 +1,14 @@
+Stand: 19.12.2019
+
+Verknüpfungen (foreign keys) zwischen Opfern und Stolpersteinen fehlen.
+>> Man kann aktuell nicht abfragen, welcher Stolperstein zu welchem Opfer gehört.
+>> Lösung: Skript durchlaufen lassen, welches beide Tabellen ausliest und nach Gemeinsamkeiten (Straße, Hausnummer, Ort) sucht und die Ergebnisse zusammenträgt.
+
+Bilder zu Opfern sind nicht zentral gesammelt
+>> Lösung: Skript durchlaufen lassen, welches die Opfer-Tabelle ausliest und auf Basis der ID's und Bildernamen URL's erstellt und die Bilder herunterlädt.
+
+Einzelne Bilder zu Opfern werden nicht gefunden.
+>> Bildernamen sind entweder veraltet oder falsch, beim Aufrufen der URL erscheint ein Fehler 404.
+
+Einzelne Stolpersteine haben 'Matchings' auf 10 Opfer.
+>> Müssen notfalls manuell zugewiesen werden
