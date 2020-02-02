@@ -4,6 +4,7 @@ using NormalizeDB.Logging;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Data;
 using System.Linq;
 
 namespace NormalizeDB
@@ -12,54 +13,91 @@ namespace NormalizeDB
   {
     static void Main(string[] args)
     {
-      ConsoleLogger logger = new ConsoleLogger();
+      ConsoleLogger consoleLogger = new ConsoleLogger();
       try
       {
         ConnectionStringSettings setting = ConfigurationManager.ConnectionStrings["MySqlStolpersteine"];
-        logger.Log($"ConnectionString: {setting.ConnectionString}", LogType.Special);
+        consoleLogger.Log($"ConnectionString: {setting.ConnectionString}", LogType.Special);
 
-        logger.Log("Press Enter to continue...");
+        consoleLogger.Log("Press Enter to continue...");
         Console.ReadLine();
 
-        using (MySqlConnection connection = new MySqlConnection(setting.ConnectionString))
+        using (MySqlConnection mySqlConnection = new MySqlConnection(setting.ConnectionString))
         {
-          connection.Open();
+          mySqlConnection.Open();
 
           /* * * * * * * * * * * * * * * * * * *
            * Step 1: Read table [tbl_st_opfer] *
            * * * * * * * * * * * * * * * * * * */
-          List<Opfer> victims = CollectVictims(logger, connection);
+          List<Opfer> victims = CollectVictims(consoleLogger, mySqlConnection);
 
           /* * * * * * * * * * * * * * * * * * * * * * *
            * Step 2: Read table [tbl_st_maps_address]  *
            * * * * * * * * * * * * * * * * * * * * * * */
-          List<Stolperstein> stones = CollectMemorialStones(logger, connection);
+          List<Stolperstein> stones = CollectMemorialStones(consoleLogger, mySqlConnection);
 
           /* * * * * * * * * * * * * * *
            * Step 3: Create matchings  *
            * * * * * * * * * * * * * * */
+          var exactMatching = new Dictionary<Stolperstein, Opfer>();
+          var notMatching = new List<Stolperstein>();
+          var multipleMatching = new Dictionary<Stolperstein, List<Opfer>>();
+
           foreach (Stolperstein stone in stones)
           {
-            var matches = FindMatch(stone, victims);
+            List<Opfer> matches = FindMatches(stone, victims);
 
             if (matches.Count == 0)
             {
-              logger.Log("No matching victims for this stone.", LogType.Warning);
+              notMatching.Add(stone);
+              consoleLogger.Log("No matching victims for this stone.", LogType.Warning);
             }
-
-            if (matches.Count > 1)
+            else if (matches.Count > 1)
             {
-              logger.Log("Multiple matching victims for this stone.", LogType.Warning);
+              multipleMatching.Add(stone, matches);
+              consoleLogger.Log("Multiple matching victims for this stone.", LogType.Warning);
+            }
+            else
+            {
+              exactMatching.Add(stone, matches[0]);
             }
           }
 
-          connection.Close();
+          /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+           * Step 4: Update table [tbl_st_opfer] with geo-data from matchings) *
+           * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+          using (MySqlTransaction mySqlTransaction = mySqlConnection.BeginTransaction())
+          {
+            int updatedRows = 0;
+            foreach (KeyValuePair<Stolperstein, Opfer> matching in exactMatching)
+            {
+              MySqlCommand updateCommand = new MySqlCommand
+              (
+                cmdText: "UPDATE tbl_st_opfer SET stolperstein_id = @fkValue WHERE opfer_id = @idValue;",
+                connection: mySqlConnection,
+                transaction: mySqlTransaction
+              );
+
+              updateCommand.Parameters.AddRange(new MySqlParameter[]
+              {
+                new MySqlParameter("@fkValue", matching.Key.ID),
+                new MySqlParameter("@idValue", matching.Value.ID)
+              });
+
+              updatedRows += updateCommand.ExecuteNonQuery();
+              consoleLogger.Log($"Updated {matching.Value.GetType().Name} ({nameof(matching.Value.ID)}) {matching.Value.ID.ToString()}:\t inserted foreign key of {matching.Key.GetType().Name} ({nameof(matching.Key.ID)}) {matching.Key.ID.ToString()}.", LogType.Success);
+            }
+
+            mySqlTransaction.Commit();
+          }
+
+          mySqlConnection.Close();
         }
-        logger.Log("Finished.", LogType.Special);
+        consoleLogger.Log("Finished.", LogType.Special);
       }
       catch (Exception exception)
       {
-        logger.Log(exception.Message, LogType.Error);
+        consoleLogger.Log(exception.Message, LogType.Error);
       }
       finally
       {
@@ -70,20 +108,20 @@ namespace NormalizeDB
 
     #region Outsourced Code
 
-    private static List<Opfer> FindMatch(Stolperstein stone, List<Opfer> victims)
+    private static List<Opfer> FindMatches(Stolperstein stone, List<Opfer> victims)
     {
       List<Opfer> matches = new List<Opfer>();
 
       foreach (Opfer victim in victims)
       {
-        if (victim.Geburtsort == stone.Ort 
+        if (victim.Geburtsort == stone.Ort
           && victim.Strasse == stone.Strasse
           && victim.Hausnummer == stone.Hausnummer)
         {
+          victim.MatchingCount += 1;
           matches.Add(victim);
         }
       }
-
       return matches;
     }
 
